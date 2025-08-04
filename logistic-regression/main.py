@@ -16,7 +16,7 @@ def main():
     # Step 1: Data Preprocessing
     # -----------------------
     # 1.1 Load and inspect
-    df = pd.read_csv('/heart_cleveland_upload.csv')
+    df = pd.read_csv('heart_cleveland_upload.csv')
     print("Dataset shape:", df.shape)
     print(df.head())
 
@@ -168,5 +168,5 @@ def main():
     ))
 
 
-if __name__ == "main":
+if __name__ == "__main__":
     main()
