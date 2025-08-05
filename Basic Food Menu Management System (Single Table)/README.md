@@ -106,7 +106,3 @@ Content-Type: application/json
 ## Authentication Stub
 
 * The `POST`, `PUT`, and `DELETE` endpoints depend on a stubbed `get_current_staff_user()` that always grants access. Replace with real auth logic as needed.
-
-## License
-
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
