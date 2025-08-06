@@ -1,99 +1,121 @@
+# crud.py (add after existing Restaurant CRUD)
+
+from sqlalchemy import select, delete
+from sqlalchemy.orm import selectinload
+from models import MenuItem, Restaurant
+from schemas import MenuItemCreate, MenuItemUpdate
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete
-from models import Restaurant
-from schemas import RestaurantCreate, RestaurantUpdate
 from typing import List, Optional
+from decimal import Decimal
 
-async def create_restaurant(
+async def create_menu_item(
     db: AsyncSession,
-    restaurant: RestaurantCreate
-) -> Restaurant:
-    db_restaurant = Restaurant(**restaurant.dict())
-    db.add(db_restaurant)
+    restaurant_id: int,
+    item: MenuItemCreate
+) -> MenuItem:
+    # 1) Ensure parent restaurant exists
+    res = await db.execute(select(Restaurant).where(Restaurant.id == restaurant_id))
+    parent = res.scalar_one_or_none()
+    if not parent:
+        return None
+
+    # 2) Build & save the new MenuItem
+    db_item = MenuItem(**item.dict(), restaurant_id=restaurant_id)
+    db.add(db_item)
     await db.commit()
-    await db.refresh(db_restaurant)
-    return db_restaurant
+    await db.refresh(db_item)
+    return db_item
 
-async def get_restaurant(
+async def get_menu_item(
     db: AsyncSession,
-    restaurant_id: int
-) -> Optional[Restaurant]:
+    item_id: int
+) -> Optional[MenuItem]:
     result = await db.execute(
-        select(Restaurant).where(Restaurant.id == restaurant_id)
+        select(MenuItem).where(MenuItem.id == item_id)
     )
     return result.scalar_one_or_none()
 
-async def get_restaurants(
+async def get_all_menu_items(
     db: AsyncSession,
     skip: int = 0,
     limit: int = 100
-) -> List[Restaurant]:
+) -> List[MenuItem]:
     result = await db.execute(
-        select(Restaurant).offset(skip).limit(limit)
+        select(MenuItem).offset(skip).limit(limit)
     )
     return result.scalars().all()
 
-async def update_restaurant(
+async def update_menu_item(
     db: AsyncSession,
-    restaurant_id: int,
-    restaurant_update: RestaurantUpdate
-) -> Optional[Restaurant]:
-    # 1. Fetch existing
-    result = await db.execute(
-        select(Restaurant).where(Restaurant.id == restaurant_id)
-    )
-    db_restaurant = result.scalar_one_or_none()
-    if not db_restaurant:
+    item_id: int,
+    item_update: MenuItemUpdate
+) -> Optional[MenuItem]:
+    # Fetch existing
+    res = await db.execute(select(MenuItem).where(MenuItem.id == item_id))
+    db_item = res.scalar_one_or_none()
+    if not db_item:
         return None
 
-    # 2. Apply updates
-    update_data = restaurant_update.dict(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(db_restaurant, field, value)
+    # Apply changes
+    update_data = item_update.dict(exclude_unset=True)
+    for field, val in update_data.items():
+        setattr(db_item, field, val)
 
-    # 3. Commit & refresh
     await db.commit()
-    await db.refresh(db_restaurant)
-    return db_restaurant
+    await db.refresh(db_item)
+    return db_item
 
-async def delete_restaurant(
+async def delete_menu_item(
+    db: AsyncSession,
+    item_id: int
+) -> Optional[MenuItem]:
+    res = await db.execute(select(MenuItem).where(MenuItem.id == item_id))
+    db_item = res.scalar_one_or_none()
+    if not db_item:
+        return None
+    await db.delete(db_item)
+    await db.commit()
+    return db_item
+
+async def search_menu_items(
+    db: AsyncSession,
+    category: Optional[str] = None,
+    vegetarian: Optional[bool] = None,
+    vegan: Optional[bool] = None,
+    skip: int = 0,
+    limit: int = 100
+) -> List[MenuItem]:
+    # Build base query
+    stmt = select(MenuItem)
+    if category:
+        stmt = stmt.where(MenuItem.category.ilike(f"%{category}%"))
+    if vegetarian is not None:
+        stmt = stmt.where(MenuItem.is_vegetarian == vegetarian)
+    if vegan is not None:
+        stmt = stmt.where(MenuItem.is_vegan == vegan)
+
+    stmt = stmt.offset(skip).limit(limit)
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
+async def get_menu_for_restaurant(
+    db: AsyncSession,
+    restaurant_id: int
+) -> List[MenuItem]:
+    result = await db.execute(
+        select(MenuItem)
+        .where(MenuItem.restaurant_id == restaurant_id)
+    )
+    return result.scalars().all()
+
+async def get_restaurant_with_menu(
     db: AsyncSession,
     restaurant_id: int
 ) -> Optional[Restaurant]:
-    result = await db.execute(
-        select(Restaurant).where(Restaurant.id == restaurant_id)
-    )
-    db_restaurant = result.scalar_one_or_none()
-    if not db_restaurant:
-        return None
-
-    await db.delete(db_restaurant)
-    await db.commit()
-    return db_restaurant
-
-async def search_restaurants_by_cuisine(
-    db: AsyncSession,
-    cuisine: str,
-    skip: int = 0,
-    limit: int = 100
-) -> List[Restaurant]:
+    # Use selectinload to pull in menu_items efficiently
     result = await db.execute(
         select(Restaurant)
-        .where(Restaurant.cuisine_type.ilike(f"%{cuisine}%"))
-        .offset(skip)
-        .limit(limit)
+        .options(selectinload(Restaurant.menu_items))
+        .where(Restaurant.id == restaurant_id)
     )
-    return result.scalars().all()
-
-async def get_active_restaurants(
-    db: AsyncSession,
-    skip: int = 0,
-    limit: int = 100
-) -> List[Restaurant]:
-    result = await db.execute(
-        select(Restaurant)
-        .where(Restaurant.is_active == True)
-        .offset(skip)
-        .limit(limit)
-    )
-    return result.scalars().all()
+    return result.scalar_one_or_none()
