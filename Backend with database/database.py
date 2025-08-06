@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
+import os
 
 # Step 1
 DATABASE_URL = "sqlite+aiosqlite:///./test.db"
@@ -7,10 +8,11 @@ DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 # Step 2
 engine = create_async_engine(
     DATABASE_URL,
-    echo= True, # enables SQL logging
-    future = True # important in older versions, enables SQLAlchemy 2.0 style behavior in SQLAlchemy 1.4+
+    echo= True, # Shows SQL queries in console
+    future = True # Important in older versions, enables SQLAlchemy 2.0 style behavior in SQLAlchemy 1.4+
 )
 
+# Step 3 - Create session maker
 AsyncSessionLocal = async_sessionmaker(
     engine,
     class_= AsyncSession, # AsyncSession -> creates session object
@@ -34,3 +36,8 @@ async def get_db():
         finally:
             await session.close() # Always close session
 
+# yield -> unlike return, yield will allow the further operation after THAT line.
+
+async def create_tables():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
