@@ -5,6 +5,7 @@ import uvicorn
 
 from database import create_tables
 from routes import router as restaurant_router
+from database import create_tables
 
 app = FastAPI(
     title="Zomato v1: Restaurant Management",
