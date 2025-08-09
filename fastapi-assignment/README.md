@@ -1,4 +1,4 @@
-# Zomato v2 — FastAPI · Async SQLAlchemy · Celery
+# Zomato — FastAPI · Async SQLAlchemy · Celery
 
 A clean FastAPI project that manages **Restaurants** and **Menu Items**, plus a focused **Celery** integration for asynchronous analytics (average menu price & item count). This README covers **setup, configuration, routes, and Celery workflow**—no fluff.
 
